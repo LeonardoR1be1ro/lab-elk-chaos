@@ -1,0 +1,34 @@
+---
+# ============================================================
+# Variáveis globais do laboratório
+# Ajuste as versões conforme necessário antes de executar.
+# ============================================================
+
+# Versões
+stack_version: "9.4.2"          # Elasticsearch / Kibana / Logstash / Beats
+eck_version: "3.4.0"            # Operador ECK (compatível com Stack 9.x)
+
+# Kubeconfig gerado pelo k3s
+kubeconfig_path: /etc/rancher/k3s/k3s.yaml
+
+# Namespaces
+ns_elastic: elastic
+ns_apps: apps
+
+# Recursos do Elastic Stack (ajuste conforme a RAM disponível)
+es_storage_class: local-path    # StorageClass padrão do k3s
+es_storage_size: 10Gi
+es_memory: 2Gi
+kibana_memory: 1Gi
+logstash_memory: 1536Mi
+
+# NodePorts de acesso externo
+kibana_nodeport: 30561
+nginx_web_nodeport: 30080
+nginx_chaos_nodeport: 30090
+
+# IP do CoreDNS no k3s (usado pelo proxy do nginx-chaos)
+cluster_dns: 10.43.0.10
+
+# Lab: parar/desabilitar o firewalld (recomendação oficial do k3s)
+disable_firewalld: true

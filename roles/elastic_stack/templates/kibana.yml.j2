@@ -1,0 +1,32 @@
+apiVersion: kibana.k8s.elastic.co/v1
+kind: Kibana
+metadata:
+  name: kibana
+  namespace: {{ ns_elastic }}
+spec:
+  version: {{ stack_version }}
+  count: 1
+  elasticsearchRef:
+    name: elasticsearch
+  http:
+    tls:
+      selfSignedCertificate:
+        disabled: true          # lab: acesso via HTTP simples no NodePort
+    service:
+      spec:
+        type: NodePort
+        ports:
+          - name: http
+            port: 5601
+            targetPort: 5601
+            nodePort: {{ kibana_nodeport }}
+  podTemplate:
+    spec:
+      containers:
+        - name: kibana
+          resources:
+            requests:
+              memory: {{ kibana_memory }}
+              cpu: 250m
+            limits:
+              memory: {{ kibana_memory }}

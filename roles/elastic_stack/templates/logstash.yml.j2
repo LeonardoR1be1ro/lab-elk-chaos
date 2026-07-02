@@ -1,0 +1,67 @@
+apiVersion: logstash.k8s.elastic.co/v1alpha1
+kind: Logstash
+metadata:
+  name: logstash
+  namespace: {{ ns_elastic }}
+spec:
+  version: {{ stack_version }}
+  count: 1
+  elasticsearchRefs:
+    - name: elasticsearch
+      clusterName: es
+  pipelines:
+    - pipeline.id: main
+      config.string: |
+        input {
+          beats {
+            port => 5044
+          }
+        }
+        filter {
+          if [kubernetes][labels][app] == "nginx-web" or [kubernetes][labels][app] == "nginx-chaos" {
+            grok {
+              match => {
+                "message" => "%{IPORHOST:[nginx][remote_ip]} - %{DATA:[nginx][user_name]} \[%{HTTPDATE:[nginx][time]}\] \"%{WORD:[http][request][method]} %{DATA:[url][path]} HTTP/%{NUMBER:[http][version]}\" %{NUMBER:[http][response][status_code]:int} %{NUMBER:[http][response][body][bytes]:int} \"%{DATA:[http][request][referrer]}\" \"%{DATA:[user_agent][original]}\""
+              }
+              tag_on_failure => ["nginx_grok_failure"]
+            }
+            if "nginx_grok_failure" not in [tags] {
+              date {
+                match => ["[nginx][time]", "dd/MMM/yyyy:HH:mm:ss Z"]
+                target => "@timestamp"
+              }
+              mutate {
+                add_field => { "[event][dataset]" => "nginx.access" }
+              }
+            }
+          }
+        }
+        output {
+          elasticsearch {
+            hosts => [ "${ES_ES_HOSTS}" ]
+            user => "${ES_ES_USER}"
+            password => "${ES_ES_PASSWORD}"
+            ssl_certificate_authorities => "${ES_ES_SSL_CERTIFICATE_AUTHORITY}"
+            index => "lab-nginx-%{+YYYY.MM.dd}"
+          }
+        }
+  services:
+    - name: beats
+      service:
+        spec:
+          type: ClusterIP
+          ports:
+            - port: 5044
+              name: filebeat
+              protocol: TCP
+              targetPort: 5044
+  podTemplate:
+    spec:
+      containers:
+        - name: logstash
+          resources:
+            requests:
+              memory: 1Gi
+              cpu: 250m
+            limits:
+              memory: {{ logstash_memory }}

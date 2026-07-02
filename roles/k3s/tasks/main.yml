@@ -1,0 +1,42 @@
+---
+- name: Verificar se o k3s já está instalado
+  ansible.builtin.stat:
+    path: /usr/local/bin/k3s
+  register: k3s_bin
+
+- name: Baixar o instalador oficial do k3s
+  ansible.builtin.get_url:
+    url: https://get.k3s.io
+    dest: /tmp/k3s-install.sh
+    mode: "0755"
+  when: not k3s_bin.stat.exists
+
+- name: Instalar o k3s (single node, kubeconfig legível)
+  ansible.builtin.command: /tmp/k3s-install.sh
+  environment:
+    INSTALL_K3S_EXEC: "--write-kubeconfig-mode 644"
+  when: not k3s_bin.stat.exists
+
+- name: Aguardar a API do Kubernetes responder na porta 6443
+  ansible.builtin.wait_for:
+    port: 6443
+    host: 127.0.0.1
+    timeout: 180
+
+- name: Aguardar o nó ficar Ready
+  ansible.builtin.command: >
+    kubectl wait --for=condition=Ready node --all --timeout=300s
+  register: node_ready
+  changed_when: false
+  retries: 5
+  delay: 10
+  until: node_ready.rc == 0
+
+- name: Exibir informações do cluster
+  ansible.builtin.command: kubectl get nodes -o wide
+  register: nodes_out
+  changed_when: false
+
+- name: Nó do cluster
+  ansible.builtin.debug:
+    msg: "{{ nodes_out.stdout_lines }}"

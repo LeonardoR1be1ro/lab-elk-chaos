@@ -1,0 +1,95 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nginx-chaos-conf
+  namespace: {{ ns_apps }}
+data:
+  default.conf: |
+    server {
+        listen 80;
+        server_name _;
+        root /usr/share/nginx/html;
+
+        # Resolve o Service via CoreDNS a cada requisicao (resiliente a recriacao)
+        resolver {{ cluster_dns }} valid=10s;
+        set $alvo http://nginx-web.{{ ns_apps }}.svc.cluster.local;
+
+        location / {
+            index index.html;
+        }
+
+        # Proxy same-origin: o painel dispara requisicoes contra o nginx-web
+        location /target/ {
+            rewrite ^/target/(.*)$ /$1 break;
+            proxy_pass $alvo;
+            proxy_set_header Host nginx-web;
+            proxy_set_header X-Chaos-Lab "nginx-chaos";
+            proxy_connect_timeout 5s;
+            proxy_read_timeout 60s;
+        }
+    }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-chaos
+  namespace: {{ ns_apps }}
+  labels:
+    app: nginx-chaos
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nginx-chaos
+  template:
+    metadata:
+      labels:
+        app: nginx-chaos
+    spec:
+      containers:
+        - name: nginx
+          image: nginx:1.27
+          ports:
+            - containerPort: 80
+              name: http
+          resources:
+            requests:
+              memory: 64Mi
+              cpu: 50m
+            limits:
+              memory: 128Mi
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 3
+            periodSeconds: 5
+          volumeMounts:
+            - name: conf
+              mountPath: /etc/nginx/conf.d
+            - name: html
+              mountPath: /usr/share/nginx/html
+      volumes:
+        - name: conf
+          configMap:
+            name: nginx-chaos-conf
+        - name: html
+          configMap:
+            name: nginx-chaos-html
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx-chaos
+  namespace: {{ ns_apps }}
+  labels:
+    app: nginx-chaos
+spec:
+  type: NodePort
+  selector:
+    app: nginx-chaos
+  ports:
+    - name: http
+      port: 80
+      targetPort: 80
+      nodePort: {{ nginx_chaos_nodeport }}

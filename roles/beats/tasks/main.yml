@@ -1,0 +1,30 @@
+---
+- name: Aplicar RBAC (ServiceAccount + ClusterRole) para os Beats
+  kubernetes.core.k8s:
+    kubeconfig: "{{ kubeconfig_path }}"
+    state: present
+    template: beats-rbac.yml.j2
+
+- name: Aplicar o Filebeat (DaemonSet -> Logstash)
+  kubernetes.core.k8s:
+    kubeconfig: "{{ kubeconfig_path }}"
+    state: present
+    template: filebeat.yml.j2
+
+- name: Aplicar o Metricbeat (DaemonSet -> Elasticsearch)
+  kubernetes.core.k8s:
+    kubeconfig: "{{ kubeconfig_path }}"
+    state: present
+    template: metricbeat.yml.j2
+
+- name: Aguardar o rollout do Filebeat
+  ansible.builtin.command: >
+    kubectl -n {{ ns_elastic }} rollout status
+    daemonset/filebeat-beat-filebeat --timeout=600s
+  changed_when: false
+
+- name: Aguardar o rollout do Metricbeat
+  ansible.builtin.command: >
+    kubectl -n {{ ns_elastic }} rollout status
+    daemonset/metricbeat-beat-metricbeat --timeout=600s
+  changed_when: false

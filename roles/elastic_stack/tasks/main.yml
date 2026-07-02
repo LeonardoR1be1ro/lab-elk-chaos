@@ -1,0 +1,69 @@
+---
+- name: Criar namespace {{ ns_elastic }}
+  kubernetes.core.k8s:
+    kubeconfig: "{{ kubeconfig_path }}"
+    state: present
+    definition:
+      apiVersion: v1
+      kind: Namespace
+      metadata:
+        name: "{{ ns_elastic }}"
+
+- name: Aplicar o cluster Elasticsearch
+  kubernetes.core.k8s:
+    kubeconfig: "{{ kubeconfig_path }}"
+    state: present
+    template: elasticsearch.yml.j2
+
+- name: Aplicar o Kibana
+  kubernetes.core.k8s:
+    kubeconfig: "{{ kubeconfig_path }}"
+    state: present
+    template: kibana.yml.j2
+
+- name: Aplicar o Logstash (pipeline beats -> elasticsearch)
+  kubernetes.core.k8s:
+    kubeconfig: "{{ kubeconfig_path }}"
+    state: present
+    template: logstash.yml.j2
+
+- name: Aguardar o Elasticsearch ficar saudável (green)
+  ansible.builtin.command: >
+    kubectl -n {{ ns_elastic }} get elasticsearch elasticsearch
+    -o jsonpath={.status.health}
+  register: es_health
+  until: es_health.stdout == "green"
+  retries: 60
+  delay: 10
+  changed_when: false
+
+- name: Aguardar o Kibana ficar saudável (green)
+  ansible.builtin.command: >
+    kubectl -n {{ ns_elastic }} get kibana kibana
+    -o jsonpath={.status.health}
+  register: kb_health
+  until: kb_health.stdout == "green"
+  retries: 60
+  delay: 10
+  changed_when: false
+
+- name: Aguardar o rollout do Logstash
+  ansible.builtin.command: >
+    kubectl -n {{ ns_elastic }} rollout status
+    statefulset/logstash-ls --timeout=600s
+  changed_when: false
+
+- name: Obter a senha do usuário elastic
+  ansible.builtin.command: >
+    kubectl -n {{ ns_elastic }} get secret elasticsearch-es-elastic-user
+    -o jsonpath={.data.elastic}
+  register: elastic_pwd
+  changed_when: false
+  no_log: true
+
+- name: Credenciais e acesso ao Kibana
+  ansible.builtin.debug:
+    msg:
+      - "Kibana: http://<IP-do-host>:{{ kibana_nodeport }}"
+      - "Usuário: elastic"
+      - "Senha: {{ elastic_pwd.stdout | b64decode }}"

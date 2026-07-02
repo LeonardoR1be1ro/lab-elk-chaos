@@ -1,0 +1,20 @@
+---
+- name: Aplicar as CRDs do ECK {{ eck_version }}
+  ansible.builtin.command: >
+    kubectl apply -f
+    https://download.elastic.co/downloads/eck/{{ eck_version }}/crds.yaml
+  register: crds_apply
+  changed_when: "'created' in crds_apply.stdout or 'configured' in crds_apply.stdout"
+
+- name: Instalar o operador ECK {{ eck_version }}
+  ansible.builtin.command: >
+    kubectl apply -f
+    https://download.elastic.co/downloads/eck/{{ eck_version }}/operator.yaml
+  register: op_apply
+  changed_when: "'created' in op_apply.stdout or 'configured' in op_apply.stdout"
+
+- name: Aguardar o rollout do operador (elastic-system)
+  ansible.builtin.command: >
+    kubectl -n elastic-system rollout status
+    statefulset/elastic-operator --timeout=300s
+  changed_when: false

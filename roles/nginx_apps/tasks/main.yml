@@ -1,0 +1,72 @@
+---
+- name: Criar namespace {{ ns_apps }}
+  kubernetes.core.k8s:
+    kubeconfig: "{{ kubeconfig_path }}"
+    state: present
+    definition:
+      apiVersion: v1
+      kind: Namespace
+      metadata:
+        name: "{{ ns_apps }}"
+
+- name: ConfigMap com a página inicial do nginx-web
+  kubernetes.core.k8s:
+    kubeconfig: "{{ kubeconfig_path }}"
+    state: present
+    definition:
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: nginx-web-html
+        namespace: "{{ ns_apps }}"
+      data:
+        index.html: "{{ lookup('file', 'web-index.html') }}"
+        slow.html: "{{ 'payload de teste do lab - linha usada para simular resposta lenta via limit_rate no nginx-web\n' * 400 }}"
+
+- name: Aplicar o nginx-web (alvo monitorado)
+  kubernetes.core.k8s:
+    kubeconfig: "{{ kubeconfig_path }}"
+    state: present
+    template: nginx-web.yml.j2
+
+- name: ConfigMap com o painel de chaos engineering
+  kubernetes.core.k8s:
+    kubeconfig: "{{ kubeconfig_path }}"
+    state: present
+    definition:
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: nginx-chaos-html
+        namespace: "{{ ns_apps }}"
+      data:
+        index.html: "{{ lookup('file', 'chaos-index.html') }}"
+
+- name: Aplicar o nginx-chaos (gerador de caos)
+  kubernetes.core.k8s:
+    kubeconfig: "{{ kubeconfig_path }}"
+    state: present
+    template: nginx-chaos.yml.j2
+
+- name: Aguardar o rollout do nginx-web
+  ansible.builtin.command: >
+    kubectl -n {{ ns_apps }} rollout status
+    deployment/nginx-web --timeout=300s
+  changed_when: false
+
+- name: Aguardar o rollout do nginx-chaos
+  ansible.builtin.command: >
+    kubectl -n {{ ns_apps }} rollout status
+    deployment/nginx-chaos --timeout=300s
+  changed_when: false
+
+- name: Resumo de acesso ao laboratório
+  ansible.builtin.debug:
+    msg:
+      - "=========================================================="
+      - "Laboratório provisionado com sucesso!"
+      - "Kibana .......: http://<IP-do-host>:{{ kibana_nodeport }} (usuário elastic)"
+      - "nginx-web ....: http://<IP-do-host>:{{ nginx_web_nodeport }}"
+      - "nginx-chaos ..: http://<IP-do-host>:{{ nginx_chaos_nodeport }}"
+      - "Senha do elastic: make password  (ou kubectl get secret)"
+      - "=========================================================="
