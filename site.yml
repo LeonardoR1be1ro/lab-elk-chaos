@@ -15,13 +15,12 @@
 # ============================================================
 - name: Elastic Stack + Chaos Engineering Lab em k3s (Fedora 44)
   hosts: lab
-  become: true
   environment:
     KUBECONFIG: "{{ kubeconfig_path }}"
   roles:
-    - { role: prereqs,       tags: ["prereqs"] }
-    - { role: k3s,           tags: ["k3s"] }
-    - { role: eck_operator,  tags: ["eck"] }
-    - { role: elastic_stack, tags: ["elastic"] }
-    - { role: beats,         tags: ["beats"] }
-    - { role: nginx_apps,    tags: ["apps"] }
+    - { role: prereqs,       tags: ["prereqs"], become: true }
+    - { role: k3s,           tags: ["k3s"],     become: true }
+    - { role: eck_operator,  tags: ["eck"],     become: false }
+    - { role: elastic_stack, tags: ["elastic"], become: false }
+    - { role: beats,         tags: ["beats"],   become: false }
+    - { role: nginx_apps,    tags: ["apps"],    become: false }
