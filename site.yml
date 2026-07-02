@@ -1,0 +1,27 @@
+---
+# ============================================================
+# Playbook principal — Elastic Stack + Chaos Lab (k3s / Fedora 44)
+#
+# Execução completa:
+#   ansible-playbook site.yml -K
+#
+# Execução por fase (tags):
+#   ansible-playbook site.yml -K --tags prereqs
+#   ansible-playbook site.yml -K --tags k3s
+#   ansible-playbook site.yml -K --tags eck
+#   ansible-playbook site.yml -K --tags elastic
+#   ansible-playbook site.yml -K --tags beats
+#   ansible-playbook site.yml -K --tags apps
+# ============================================================
+- name: Elastic Stack + Chaos Engineering Lab em k3s (Fedora 44)
+  hosts: lab
+  become: true
+  environment:
+    KUBECONFIG: "{{ kubeconfig_path }}"
+  roles:
+    - { role: prereqs,       tags: ["prereqs"] }
+    - { role: k3s,           tags: ["k3s"] }
+    - { role: eck_operator,  tags: ["eck"] }
+    - { role: elastic_stack, tags: ["elastic"] }
+    - { role: beats,         tags: ["beats"] }
+    - { role: nginx_apps,    tags: ["apps"] }

@@ -1,0 +1,44 @@
+---
+# ============================================================
+# Remoção do laboratório
+#
+# Apenas os workloads (mantém o k3s):
+#   ansible-playbook destroy.yml -K
+#
+# Remoção completa (desinstala o k3s):
+#   ansible-playbook destroy.yml -K -e destroy_scope=full
+# ============================================================
+- name: Destruir o laboratório
+  hosts: lab
+  become: true
+  vars:
+    destroy_scope: namespaces   # namespaces | full
+  environment:
+    KUBECONFIG: "{{ kubeconfig_path }}"
+  tasks:
+    - name: Remover namespaces do laboratório
+      kubernetes.core.k8s:
+        kubeconfig: "{{ kubeconfig_path }}"
+        state: absent
+        api_version: v1
+        kind: Namespace
+        name: "{{ item }}"
+        wait: true
+        wait_timeout: 300
+      loop:
+        - "{{ ns_apps }}"
+        - "{{ ns_elastic }}"
+      when: destroy_scope in ["namespaces", "full"]
+      failed_when: false
+
+    - name: Verificar se o desinstalador do k3s existe
+      ansible.builtin.stat:
+        path: /usr/local/bin/k3s-uninstall.sh
+      register: k3s_uninstaller
+      when: destroy_scope == "full"
+
+    - name: Desinstalar o k3s por completo
+      ansible.builtin.command: /usr/local/bin/k3s-uninstall.sh
+      when:
+        - destroy_scope == "full"
+        - k3s_uninstaller.stat.exists

@@ -1,0 +1,18 @@
+# Ansible
+*.retry
+.ansible/
+
+# Segredos e kubeconfigs — nunca versionar
+*.kubeconfig
+kubeconfig*
+k3s.yaml
+*.pem
+*.key
+*.crt
+.env
+
+# Editores / SO
+.vscode/
+.idea/
+*.swp
+.DS_Store
