@@ -13,9 +13,20 @@ spec:
           node: ${NODE_NAME}
           hints.enabled: true
           hints.default_config:
-            type: container
+            # O input "container" foi descontinuado (deprecado desde o
+            # Filebeat 7.16) e passou a falhar sem iniciar o harvester
+            # ("won't start runner") no autodiscover a partir da série
+            # 8.12+/9.x. O substituto oficial é "filestream" com o
+            # parser "container", que entende o mesmo formato de log
+            # de containerd/CRI-O e do runtime Docker.
+            type: filestream
+            id: "kubernetes-container-logs-${data.kubernetes.container.id}"
             paths:
-              - /var/log/containers/*${data.kubernetes.container.id}.log
+              - /var/log/containers/*-${data.kubernetes.container.id}.log
+            prospector.scanner.symlinks: true
+            close.on_state_change.removed: false
+            parsers:
+              - container: ~
     processors:
       - add_host_metadata: {}
     # Saída para o Logstash (pipeline: Filebeat -> Logstash -> Elasticsearch)

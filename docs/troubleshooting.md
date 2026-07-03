@@ -343,6 +343,35 @@ sudo restorecon -Rv /var/log/containers
 
 (repita o padrão para `/var/log/pods` e demais hostPaths usados pelos Beats, ajustando o tipo de contexto conforme necessário).
 
+### `Auto discover config check failed ... won't start runner, err: Found container input configuration: Container input is deprecated`
+
+Sintoma: **nenhum log novo chega ao Elasticsearch**, mesmo com o Filebeat `Running` e sem erros óbvios de conexão. O sintoma é inconsistente à primeira vista — pode até haver documentos antigos indexados, criando a falsa impressão de que "às vezes funciona".
+
+Causa: a partir do Filebeat 8.12+/9.x, o input `container` (usado por padrão no `hints.default_config` do autodiscover) foi bloqueado — não é mais um aviso, é um erro que **impede o harvester de iniciar** (`won't start runner`) para qualquer container novo descoberto. Documentos antigos podem ter vindo de harvesters iniciados antes dessa mudança ter efeito (ex.: antes de um restart do Filebeat), mas **nenhum pod recriado depois** (Deployment reiniciado, rollout, `kubectl delete pod`) nunca mais ganha um harvester novo.
+
+Solução (já aplicada em `roles/beats/templates/filebeat.yml.j2`): migrar o `hints.default_config` para o input `filestream` com o parser `container`, o substituto oficial recomendado pela Elastic:
+
+```yaml
+hints.default_config:
+  type: filestream
+  id: "kubernetes-container-logs-${data.kubernetes.container.id}"
+  paths:
+    - /var/log/containers/*-${data.kubernetes.container.id}.log
+  prospector.scanner.symlinks: true
+  close.on_state_change.removed: false
+  parsers:
+    - container: ~
+```
+
+Depois de aplicar, confirme que o erro sumiu e que harvesters novos estão abrindo:
+
+```bash
+kubectl -n elastic delete pod -l beat.k8s.elastic.co/name=filebeat
+kubectl -n elastic logs ds/filebeat-beat-filebeat --tail=100 | grep -iE "won't start runner|Harvester started"
+```
+
+Não deve mais aparecer `won't start runner`. Deve aparecer `Harvester started for file: ...` para os pods do `nginx-web`/`nginx-chaos` (e qualquer outro pod do cluster, já que o autodiscover ainda é cluster-wide — o filtro do Logstash é quem decide o que vira `logs-nginx.access-*`, ver seção 6).
+
 ### Filebeat não entrega logs
 
 ```bash
