@@ -11,22 +11,42 @@ spec:
       providers:
         - type: kubernetes
           node: ${NODE_NAME}
-          hints.enabled: true
-          hints.default_config:
-            # O input "container" foi descontinuado (deprecado desde o
-            # Filebeat 7.16) e passou a falhar sem iniciar o harvester
-            # ("won't start runner") no autodiscover a partir da série
-            # 8.12+/9.x. O substituto oficial é "filestream" com o
-            # parser "container", que entende o mesmo formato de log
-            # de containerd/CRI-O e do runtime Docker.
-            type: filestream
-            id: "kubernetes-container-logs-${data.kubernetes.container.id}"
-            paths:
-              - /var/log/containers/*-${data.kubernetes.container.id}.log
-            prospector.scanner.symlinks: true
-            close.on_state_change.removed: false
-            parsers:
-              - container: ~
+          # Não usamos "hints" aqui de propósito. O ECK injeta annotations
+          # de módulo (co.elastic.logs/module: kibana, elasticsearch, etc.)
+          # nos próprios pods do Elastic Stack, e o Filebeat gera MAIS DE UM
+          # fileset (ex.: audit + log) para o mesmo container. Como o ID do
+          # filestream era derivado só do container ID, os dois filesets
+          # colidiam em "filestream input ID ... is duplicated: input will
+          # NOT start" — e isso derrubava o LOTE INTEIRO de reload do
+          # autodiscover, bloqueando também a descoberta de pods novos do
+          # nginx-web/nginx-chaos no mesmo ciclo. Um "template" com condição
+          # explícita evita esse acoplamento por completo: só os pods do
+          # nginx são considerados, o resto do cluster nem é avaliado.
+          templates:
+            - condition:
+                or:
+                  - equals:
+                      kubernetes.labels.app: "nginx-web"
+                  - equals:
+                      kubernetes.labels.app: "nginx-chaos"
+              config:
+                - type: filestream
+                  # O input "container" (usado por hints.default_config em
+                  # versões antigas) foi descontinuado; o substituto oficial
+                  # é "filestream" + parser "container".
+                  id: "nginx-container-logs-${data.kubernetes.container.id}"
+                  paths:
+                    - /var/log/containers/*-${data.kubernetes.container.id}.log
+                  prospector.scanner.symlinks: true
+                  close.on_state_change.removed: false
+                  parsers:
+                    # "container: ~" (valor nulo em YAML) colapsava para
+                    # "parsers: [null]" ao passar pelo campo `config` do
+                    # Beat CR do ECK, e o Filebeat rejeitava com
+                    # "no such parser accessing config". Um valor concreto
+                    # (mesmo que seja só o default explícito) evita o colapso.
+                    - container:
+                        stream: all
     processors:
       - add_host_metadata: {}
     # Saída para o Logstash (pipeline: Filebeat -> Logstash -> Elasticsearch)

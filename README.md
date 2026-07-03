@@ -27,7 +27,7 @@ Automação completa em **Ansible** para provisionar, em um único host **Fedora
 
 | Sinal | Caminho | Destino |
 |---|---|---|
-| Logs de acesso do nginx | Filebeat (autodiscover/hints) → **Logstash** (grok + date) | Data stream `logs-nginx.access-default` |
+| Logs de acesso do nginx | Filebeat (autodiscover, template escopado a `nginx-web`/`nginx-chaos`) → **Logstash** (grok + date) | Data stream `logs-nginx.access-default` |
 | Métricas de host, Kubernetes e `stub_status` do nginx | Metricbeat (DaemonSet + hints) | Data stream `metricbeat-*` |
 
 O Logstash faz o parse dos logs de acesso (formato *combined*) com `grok`, extraindo `http.response.status_code`, `url.path`, `user_agent.original` etc., e grava no Elasticsearch com autenticação e TLS gerenciados pelo ECK.

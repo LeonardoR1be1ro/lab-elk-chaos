@@ -372,6 +372,55 @@ kubectl -n elastic logs ds/filebeat-beat-filebeat --tail=100 | grep -iE "won't s
 
 Não deve mais aparecer `won't start runner`. Deve aparecer `Harvester started for file: ...` para os pods do `nginx-web`/`nginx-chaos` (e qualquer outro pod do cluster, já que o autodiscover ainda é cluster-wide — o filtro do Logstash é quem decide o que vira `logs-nginx.access-*`, ver seção 6).
 
+### `filestream input ID '...' is duplicated` seguido de `all new inputs failed to start with a non-retriable error`
+
+Sintoma: mesmo depois de corrigir o input `container` → `filestream` (ver entrada anterior), ainda não chega nenhum log novo — inclusive de pods que nunca deram erro antes.
+
+Causa: o **ECK injeta automaticamente annotations de módulo** (`co.elastic.logs/module: kibana`, `elasticsearch`, etc.) nos próprios pods do Elastic Stack, para facilitar autodiscovery. Isso faz o Filebeat gerar **mais de um** fileset por container (ex.: `audit` + `log` para o Kibana) — e se o `id` do filestream configurado em `hints.default_config` for derivado só do `${data.kubernetes.container.id}`, os dois filesets do mesmo container colidem no mesmo ID. O Filebeat rejeita com `is duplicated: input will NOT start`, e — mais grave — **isso derruba o lote inteiro daquele ciclo de reload do autodiscover**, incluindo qualquer pod novo (nginx-web, nginx-chaos) descoberto na mesma leva. Ou seja: um problema de config nos pods do *próprio* Elastic Stack bloqueia silenciosamente a coleta dos pods que você realmente quer monitorar.
+
+### `no such parser accessing config`
+
+Sintoma relacionado ao anterior: `Auto discover config check failed ... won't start runner, err: runner factory could not check config: : no such parser accessing config`.
+
+Causa: `parsers: [{ container: ~ }]` (valor nulo em YAML) colapsa para `parsers: [null]` ao passar pelo campo `config` (tipo JSON arbitrário) do Beat CR do ECK. O Filebeat não sabe interpretar um parser `null` — ele espera um objeto com uma chave conhecida (`container`, `ndjson`, `multiline`, etc.), mesmo que essa chave não precise de sub-opções.
+
+Solução (já aplicada neste projeto, resolvendo as duas causas de uma vez): abandonar `hints`-based autodiscover em favor de um **template com condição explícita**, escopado só aos pods do `nginx-web`/`nginx-chaos`. Isso evita por completo que o Filebeat avalie hints injetados pelo ECK nos outros componentes do stack (elimina a colisão de ID) e usa um parser com campo concreto em vez de `~` (elimina o colapso para `null`):
+
+```yaml
+filebeat.autodiscover:
+  providers:
+    - type: kubernetes
+      node: ${NODE_NAME}
+      templates:
+        - condition:
+            or:
+              - equals:
+                  kubernetes.labels.app: "nginx-web"
+              - equals:
+                  kubernetes.labels.app: "nginx-chaos"
+          config:
+            - type: filestream
+              id: "nginx-container-logs-${data.kubernetes.container.id}"
+              paths:
+                - /var/log/containers/*-${data.kubernetes.container.id}.log
+              prospector.scanner.symlinks: true
+              close.on_state_change.removed: false
+              parsers:
+                - container:
+                    stream: all
+```
+
+Efeito colateral positivo: como o Filebeat agora só harvesteia os pods do nginx, o `else { drop {} }` que adicionamos no filtro do Logstash (seção anterior) vira uma segunda camada de proteção, não a única — e os erros de `Error decoding JSON: invalid character '-' after array element` (autodiscover tentando interpretar logs do Kibana como JSON) somem por completo, já que o Filebeat nem avalia mais esses pods.
+
+Depois de aplicar, force o restart e confirme:
+
+```bash
+kubectl -n elastic delete pod -l beat.k8s.elastic.co/name=filebeat
+kubectl -n elastic logs ds/filebeat-beat-filebeat --tail=100 | grep -iE "duplicated|no such parser|Harvester started"
+```
+
+Não deve mais aparecer `duplicated` nem `no such parser`. Deve aparecer `Harvester started` apenas para arquivos de log do `nginx-web`/`nginx-chaos`.
+
 ### Filebeat não entrega logs
 
 ```bash

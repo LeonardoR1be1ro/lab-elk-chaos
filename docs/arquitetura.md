@@ -13,7 +13,7 @@ Um único host Fedora 44 executa um cluster k3s de nó único. O operador **ECK*
 | `elasticsearch` | `Elasticsearch` (1 nó, PVC 10Gi `local-path`) | Armazenamento e busca |
 | `kibana` | `Kibana` (NodePort 30561, TLS desabilitado no HTTP) | Visualização e alertas |
 | `logstash` | `Logstash` (StatefulSet + Service `logstash-ls-beats:5044`) | Parse dos logs do nginx (grok) e escrita no ES |
-| `filebeat` | `Beat` (DaemonSet) | Coleta de logs de contêineres via autodiscover/hints |
+| `filebeat` | `Beat` (DaemonSet) | Coleta de logs via autodiscover com template escopado só a `nginx-web`/`nginx-chaos` (evita colidir com os módulos automáticos que o ECK injeta nos próprios pods do Elastic Stack) |
 | `metricbeat` | `Beat` (DaemonSet, hostNetwork) | Métricas de sistema, kubelet e `stub_status` do nginx |
 
 ### namespace `apps`
