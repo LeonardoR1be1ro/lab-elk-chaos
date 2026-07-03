@@ -61,13 +61,14 @@ spec:
         automountServiceAccountToken: true
         dnsPolicy: ClusterFirstWithHostNet
         hostNetwork: true
+        hostPID: true
         containers:
           - name: metricbeat
             args:
               - -e
               - -c
               - /etc/beat.yml
-              - -system.hostfs=/hostfs
+              - --system.hostfs=/hostfs
             securityContext:
               runAsUser: 0
             resources:

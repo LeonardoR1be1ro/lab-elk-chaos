@@ -10,7 +10,6 @@
 # ============================================================
 - name: Destruir o laboratório
   hosts: lab
-  become: true
   vars:
     destroy_scope: namespaces   # namespaces | full
   environment:
@@ -30,15 +29,18 @@
         - "{{ ns_elastic }}"
       when: destroy_scope in ["namespaces", "full"]
       failed_when: false
+      # sem become: a espera de até 300s poderia expirar o cache do sudo
 
     - name: Verificar se o desinstalador do k3s existe
       ansible.builtin.stat:
         path: /usr/local/bin/k3s-uninstall.sh
       register: k3s_uninstaller
+      become: true
       when: destroy_scope == "full"
 
     - name: Desinstalar o k3s por completo
       ansible.builtin.command: /usr/local/bin/k3s-uninstall.sh
+      become: true
       when:
         - destroy_scope == "full"
         - k3s_uninstaller.stat.exists

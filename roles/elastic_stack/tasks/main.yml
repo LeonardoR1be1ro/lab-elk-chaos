@@ -27,12 +27,15 @@
     state: present
     template: logstash.yml.j2
 
-- name: Aguardar o Elasticsearch ficar saudável (green)
+- name: Aguardar o Elasticsearch ficar saudável (yellow ou green)
   ansible.builtin.command: >
     kubectl -n {{ ns_elastic }} get elasticsearch elasticsearch
     -o jsonpath={.status.health}
   register: es_health
-  until: es_health.stdout == "green"
+  # Cluster de 1 nó com o número padrão de réplicas (1) nunca atinge
+  # "green" — não há um segundo nó para alocar a réplica de cada shard.
+  # "yellow" é o teto de saúde possível e totalmente normal num single-node.
+  until: es_health.stdout in ["yellow", "green"]
   retries: 60
   delay: 10
   changed_when: false
@@ -42,6 +45,7 @@
     kubectl -n {{ ns_elastic }} get kibana kibana
     -o jsonpath={.status.health}
   register: kb_health
+  # Kibana não tem shards/réplicas — aqui "green" é sempre alcançável.
   until: kb_health.stdout == "green"
   retries: 60
   delay: 10

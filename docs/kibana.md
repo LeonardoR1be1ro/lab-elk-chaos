@@ -4,12 +4,12 @@
 
 | Data view | Índice/pattern | Conteúdo |
 |---|---|---|
-| `lab-nginx-*` | `lab-nginx-YYYY.MM.dd` | Logs de acesso do nginx parseados pelo Logstash |
+| `logs-nginx.access-*` | Data stream `logs-nginx.access-default` | Logs de acesso do nginx parseados pelo Logstash |
 | `metricbeat-*` | data stream do Metricbeat | Métricas de host, Kubernetes e `stub_status` |
 
 Criação: **Stack Management → Data Views → Create data view**, usando `@timestamp` como campo de tempo.
 
-## 2. Campos principais em `lab-nginx-*`
+## 2. Campos principais em `logs-nginx.access-*`
 
 Extraídos pelo `grok` no pipeline do Logstash (`roles/elastic_stack/templates/logstash.yml.j2`):
 
@@ -46,7 +46,7 @@ tags : "nginx_grok_failure"
 
 1. **Taxa de erro (%)** — fórmula:
    `count(kql='http.response.status_code >= 400') / count() * 100`
-   sobre `lab-nginx-*`, quebrado por `kubernetes.labels.app`;
+   sobre `logs-nginx.access-*`, quebrado por `kubernetes.labels.app`;
 2. **RPS por classe de status** — *Bar vertical stacked*, eixo X `@timestamp` (intervalo 10s), quebra por `http.response.status_code` (top 5);
 3. **Top rotas com erro** — *Table*, `url.path` filtrado por `status_code >= 400`;
 4. **Conexões ativas do nginx** — em `metricbeat-*`, campo `nginx.stubstatus.active`, média por `kubernetes.pod.name`;
@@ -56,7 +56,7 @@ tags : "nginx_grok_failure"
 
 | Regra | Condição | Cenário que dispara |
 |---|---|---|
-| Taxa de 5xx | > 10% em 2 min (custom threshold sobre `lab-nginx-*`) | Erros 500 / Caos total |
+| Taxa de 5xx | > 10% em 2 min (custom threshold sobre `logs-nginx.access-*`) | Erros 500 / Caos total |
 | Volume de 404 | count > 100 em 1 min com `status_code: 404` | Rajada de 404 |
 | Indisponibilidade | count > 50 de `status_code: 503` em 1 min | Indisponível 503 |
 | CPU do nó | `system.cpu.total.norm.pct > 0.9` por 5 min | Carga alta sustentada |
@@ -72,7 +72,7 @@ for i in $(seq 1 50); do curl -s -o /dev/null http://localhost:30080/erro/500; d
 # 2. Confirme a chegada no Elasticsearch
 PASS=$(kubectl -n elastic get secret elasticsearch-es-elastic-user -o jsonpath='{.data.elastic}' | base64 -d)
 kubectl -n elastic exec elasticsearch-es-default-0 -- \
-  curl -sk -u "elastic:${PASS}" "https://localhost:9200/lab-nginx-*/_count"
+  curl -sk -u "elastic:${PASS}" "https://localhost:9200/logs-nginx.access-*/_count"
 
 # 3. No Discover, filtre: http.response.status_code : 500
 ```

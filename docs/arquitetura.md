@@ -29,7 +29,7 @@ Um único host Fedora 44 executa um cluster k3s de nó único. O operador **ECK*
 2. **Hints-based autodiscover**: o `nginx-web` declara nas *annotations* como deve ser monitorado (`co.elastic.metrics/*`) — o padrão escala para novas aplicações sem alterar os Beats;
 3. **Proxy same-origin no nginx-chaos**: o navegador fala apenas com o `nginx-chaos`; o proxy `/target/*` elimina CORS e faz o tráfego de caos atravessar a rede do cluster, aparecendo nos logs do `nginx-web` com origem interna;
 4. **Resolver dinâmico no proxy**: `resolver 10.43.0.10 valid=10s` + variável no `proxy_pass` evita cache eterno de DNS caso o Service seja recriado;
-5. **Índice `lab-nginx-*`** (e não `logs-*`): evita colisão com os index templates/data streams nativos do Elasticsearch 9.x;
+5. **Índice `logs-nginx.access-*`** (e não `logs-*`): evita colisão com os index templates/data streams nativos do Elasticsearch 9.x;
 6. **Senhas e TLS por conta do ECK**: nenhum segredo em arquivos do repositório; Logstash e Beats recebem credenciais via `elasticsearchRef`/variáveis injetadas pelo operador.
 
 ## Portas

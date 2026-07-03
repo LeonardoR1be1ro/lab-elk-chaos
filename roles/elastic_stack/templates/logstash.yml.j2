@@ -42,7 +42,15 @@ spec:
             user => "${ES_ES_USER}"
             password => "${ES_ES_PASSWORD}"
             ssl_certificate_authorities => "${ES_ES_SSL_CERTIFICATE_AUTHORITY}"
-            index => "lab-nginx-%{+YYYY.MM.dd}"
+            # Data stream no padrão <tipo>-<dataset>-<namespace>. O usuário
+            # gerenciado pelo ECK (eck_logstash_user_role) só tem privilégio
+            # de auto_create/manage para padrões logs-*/metrics-*/traces-*;
+            # um índice clássico com nome arbitrário (ex.: "lab-nginx-*")
+            # é rejeitado com 403 security_exception em [indices:admin/auto_create].
+            data_stream => "true"
+            data_stream_type => "logs"
+            data_stream_dataset => "nginx.access"
+            data_stream_namespace => "default"
           }
         }
   services:

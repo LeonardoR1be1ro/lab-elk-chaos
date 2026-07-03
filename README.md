@@ -27,7 +27,7 @@ Automação completa em **Ansible** para provisionar, em um único host **Fedora
 
 | Sinal | Caminho | Destino |
 |---|---|---|
-| Logs de acesso do nginx | Filebeat (autodiscover/hints) → **Logstash** (grok + date) | Índice `lab-nginx-YYYY.MM.dd` |
+| Logs de acesso do nginx | Filebeat (autodiscover/hints) → **Logstash** (grok + date) | Data stream `logs-nginx.access-default` |
 | Métricas de host, Kubernetes e `stub_status` do nginx | Metricbeat (DaemonSet + hints) | Data stream `metricbeat-*` |
 
 O Logstash faz o parse dos logs de acesso (formato *combined*) com `grok`, extraindo `http.response.status_code`, `url.path`, `user_agent.original` etc., e grava no Elasticsearch com autenticação e TLS gerenciados pelo ECK.
@@ -122,7 +122,7 @@ kubectl -n elastic-system logs sts/elastic-operator | tail
 ansible-playbook site.yml -K --tags elastic
 ```
 
-Valide (aguarde `HEALTH: green`):
+Valide (aguarde `HEALTH: yellow` ou `green` — num cluster de 1 nó, `yellow` já é saudável, pois não há um segundo nó para alocar réplicas):
 
 ```bash
 kubectl -n elastic get elasticsearch,kibana,logstash
@@ -178,9 +178,9 @@ kubectl -n elastic get secret elasticsearch-es-elastic-user \
 ## Configurando os data views no Kibana
 
 1. Acesse **Kibana → Stack Management → Data Views → Create data view**;
-2. Crie o data view **`lab-nginx-*`** (timestamp: `@timestamp`) — logs do nginx parseados pelo Logstash;
+2. Crie o data view **`logs-nginx.access-*`** (timestamp: `@timestamp`) — logs do nginx parseados pelo Logstash;
 3. Crie o data view **`metricbeat-*`** — métricas de host, Kubernetes e `stub_status` do nginx;
-4. Em **Discover**, selecione `lab-nginx-*` e filtre por `kubernetes.labels.app : "nginx-web"`.
+4. Em **Discover**, selecione `logs-nginx.access-*` e filtre por `kubernetes.labels.app : "nginx-web"`.
 
 Consultas KQL úteis e sugestões de visualizações e alertas estão em [`docs/kibana.md`](docs/kibana.md).
 
@@ -190,7 +190,7 @@ Abra `http://<IP-do-host>:30090` e execute os cenários. Todas as requisições 
 
 | Cenário | O que injeta | O que observar no Kibana |
 |---|---|---|
-| Tráfego normal | GETs em `/ok` e `/` | Baseline de RPS e latência em `lab-nginx-*` |
+| Tráfego normal | GETs em `/ok` e `/` | Baseline de RPS e latência em `logs-nginx.access-*` |
 | Rajada de 404 | Rotas inexistentes | `http.response.status_code : 404` subindo |
 | Erros 500 | `/erro/500` | Taxa de erro 5xx — bom gatilho para alertas |
 | Indisponível 503 | `/erro/503` | Simulação de outage / circuito aberto |
@@ -200,7 +200,7 @@ Abra `http://<IP-do-host>:30090` e execute os cenários. Todas as requisições 
 Sugestão de experimento completo (hipótese → injeção → observação → aprendizado):
 
 1. **Hipótese**: "com 20 rps de erros 500, um alerta de taxa de erro > 10% dispara em até 2 minutos";
-2. Crie o alerta no Kibana (**Observability → Alerts**, ou regra de *threshold* sobre `lab-nginx-*`);
+2. Crie o alerta no Kibana (**Observability → Alerts**, ou regra de *threshold* sobre `logs-nginx.access-*`);
 3. Rode o cenário **Erros 500** com 20 rps por 5 minutos;
 4. Verifique o disparo, o tempo de detecção e documente o resultado.
 
@@ -231,7 +231,7 @@ Tudo é parametrizado em [`group_vars/all.yml`](group_vars/all.yml): versões do
 
 ## Troubleshooting
 
-Os problemas mais comuns (pods `Pending` por falta de memória, Elasticsearch `unknown`, Filebeat sem conectar no Logstash, NodePort inacessível, DNS do proxy do chaos) estão documentados em [`docs/troubleshooting.md`](docs/troubleshooting.md).
+Todos os problemas encontrados e corrigidos durante o desenvolvimento deste lab — de erros de configuração do Ansible a *race conditions* do operador ECK, permissões do Elasticsearch, SELinux, rate limit do Docker Hub e mais — estão documentados e organizados por camada em [`docs/troubleshooting.md`](docs/troubleshooting.md). Antes do primeiro deploy, também vale rodar `docs/pre-pull-imagens.sh` para baixar todas as imagens com antecedência e evitar timeouts de rollout.
 
 ## Limpeza
 

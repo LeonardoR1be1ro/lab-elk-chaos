@@ -18,3 +18,19 @@
     kubectl -n elastic-system rollout status
     statefulset/elastic-operator --timeout=300s
   changed_when: false
+
+- name: Aguardar o webhook de admissão do operador ficar pronto
+  # O pod "Ready" não garante que o webhook (mesmo processo, mas com
+  # certificado TLS gerado de forma assíncrona no boot) já esteja
+  # aceitando conexões. Sem essa espera, o primeiro apply de um CR
+  # (Elasticsearch/Kibana/Logstash) pode falhar com um erro do tipo
+  # "failed calling webhook ... connection refused" — um race condition
+  # real logo após a primeira instalação do operador.
+  ansible.builtin.command: >
+    kubectl -n elastic-system get endpoints elastic-webhook-server
+    -o jsonpath={.subsets[*].addresses[*].ip}
+  register: webhook_endpoints
+  until: webhook_endpoints.stdout | trim | length > 0
+  retries: 30
+  delay: 5
+  changed_when: false

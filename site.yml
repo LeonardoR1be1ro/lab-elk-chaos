@@ -18,8 +18,14 @@
   environment:
     KUBECONFIG: "{{ kubeconfig_path }}"
   roles:
+    # Precisam de root: pacotes do sistema, sysctl e instalação do k3s
     - { role: prereqs,       tags: ["prereqs"], become: true }
     - { role: k3s,           tags: ["k3s"],     become: true }
+    # Daqui em diante, apenas 'kubectl' contra o kubeconfig do k3s
+    # (legível pelo usuário — write-kubeconfig-mode 644). Rodar sem
+    # become evita que o cache de sudo expire durante os loops de
+    # espera (Elasticsearch/Kibana green), que podem levar vários
+    # minutos e disparariam um novo prompt de senha sem terminal.
     - { role: eck_operator,  tags: ["eck"],     become: false }
     - { role: elastic_stack, tags: ["elastic"], become: false }
     - { role: beats,         tags: ["beats"],   become: false }
