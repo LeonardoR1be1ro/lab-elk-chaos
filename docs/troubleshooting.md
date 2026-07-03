@@ -252,6 +252,38 @@ kubectl -n elastic exec sts/logstash-ls -- curl -s http://localhost:9600/_node/s
 
 Se ainda houver `403` após esse ajuste, confira se o campo `[event][dataset]` não está sendo sobrescrito com um valor fora do padrão em algum filtro customizado — o nome final do data stream é `<data_stream_type>-<data_stream_dataset>-<data_stream_namespace>`.
 
+### Índice `logs-nginx.access-*` cheio de documentos que não são do nginx (ex.: logs do próprio Kibana)
+
+Sintoma: `_count` do data stream mostra um número alto (milhares) de documentos, mas ao abrir um documento de exemplo o `message` é claramente de outro componente (Kibana, Elasticsearch, Logstash, algo do `kube-system`) — e mesmo assim `data_stream.dataset` aparece como `"nginx.access"`. Consultas como `http.response.status_code >= 500` não retornam nada mesmo com tráfego de erro gerado, porque os documentos reais do nginx estão diluídos entre milhares de logs de outros pods.
+
+Causa: bug de design no pipeline do Logstash. O filtro condicional (`if [kubernetes][labels][app] == "nginx-web" or == "nginx-chaos"`) só decidia se o `grok`/`date`/`mutate` rodavam — mas o bloco de **output** não tinha condicional nenhuma, e o Filebeat coleta **todos os pods do cluster** via autodiscover (Kibana, Elasticsearch, o próprio Logstash, `kube-system`, etc.), não só o nginx. Como o output fixa `data_stream_dataset => "nginx.access"` incondicionalmente, **todo evento que chega ao Logstash** — nginx ou não — era gravado nesse data stream.
+
+Solução (já aplicada neste projeto): descartar explicitamente no filtro qualquer evento que não seja do nginx, antes de chegar ao output:
+
+```
+filter {
+  if [kubernetes][labels][app] == "nginx-web" or [kubernetes][labels][app] == "nginx-chaos" {
+    # grok, date, mutate...
+  } else {
+    drop { }
+  }
+}
+```
+
+Depois de aplicar o fix, **o índice antigo continua "sujo"** com os documentos incorretos já gravados — o `drop` só afeta eventos novos. Para um lab, o mais simples é deletar o data stream e recomeçar do zero:
+
+```bash
+PASS=$(kubectl -n elastic get secret elasticsearch-es-elastic-user -o jsonpath='{.data.elastic}' | base64 -d)
+kubectl -n elastic exec elasticsearch-es-default-0 -- \
+  curl -sk -u "elastic:${PASS}" -X DELETE "https://localhost:9200/_data_stream/logs-nginx.access-default"
+
+# reaplica o pipeline corrigido e reinicia o Logstash pra limpar qualquer fila de retry
+ansible-playbook site.yml -K --tags elastic
+kubectl -n elastic delete pod logstash-ls-0
+```
+
+Depois disso, gere tráfego (`curl` no `nginx-web`/`nginx-chaos`) e confirme que o `_count` volta a crescer só com documentos que de fato têm `http.response.status_code` no `_source`.
+
 ### Logs com a tag `nginx_grok_failure`
 
 O formato de log difere do *combined* padrão. Ajuste o pattern no `logstash.yml.j2` e reaplique com `--tags elastic` (o ECK faz o reload do pipeline).

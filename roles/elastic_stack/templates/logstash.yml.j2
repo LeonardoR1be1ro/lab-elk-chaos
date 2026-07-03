@@ -34,6 +34,16 @@ spec:
                 add_field => { "[event][dataset]" => "nginx.access" }
               }
             }
+          } else {
+            # O Filebeat coleta TODOS os pods do cluster via autodiscover
+            # (Kibana, Elasticsearch, Logstash, kube-system etc.), não só
+            # o nginx-web/nginx-chaos. Sem este "drop", o bloco de output
+            # abaixo (que fixa data_stream_dataset => "nginx.access" sem
+            # nenhuma condição) gravaria TODO evento do cluster dentro do
+            # data stream de logs do nginx — foi exatamente o que
+            # aconteceu antes deste fix: um log do Kibana que só *mencionava*
+            # a palavra "nginx.access" no texto acabou indexado ali.
+            drop { }
           }
         }
         output {

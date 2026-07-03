@@ -243,6 +243,21 @@ ansible-playbook destroy.yml -K
 ansible-playbook destroy.yml -K -e destroy_scope=full
 ```
 
+## Publicando no GitHub
+
+O passo a passo completo (HTTPS, SSH e GitHub CLI) está em [`docs/publicar-no-github.md`](docs/publicar-no-github.md). Resumo:
+
+```bash
+cd elastic-k8s-chaos-lab
+git init -b main
+git add .
+git commit -m "feat: lab Elastic Stack (ECK) + chaos engineering em k3s no Fedora 44"
+
+# Crie o repositório vazio no GitHub (sem README) e depois:
+git remote add origin git@github.com:<seu-usuario>/elastic-k8s-chaos-lab.git
+git push -u origin main
+```
+
 > O `.gitignore` já impede o versionamento de kubeconfigs, certificados e segredos. **Nunca** faça commit da senha do `elastic` ou do arquivo `k3s.yaml`.
 
 ## Licença
