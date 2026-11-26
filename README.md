@@ -64,7 +64,7 @@ ansible-galaxy collection install -r requirements.yml
 ## Instalação rápida (TL;DR)
 
 ```bash
-git clone https://github.com/<seu-usuario>/elastic-k8s-chaos-lab.git
+git clone https://github.com/LeonardoR1be1ro/lab-elk-chaos.git 
 cd elastic-k8s-chaos-lab
 ansible-galaxy collection install -r requirements.yml
 ansible-playbook site.yml -K        # -K pede a senha do sudo
