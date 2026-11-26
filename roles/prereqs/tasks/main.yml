@@ -1,5 +1,15 @@
 ---
-- name: Garantir pacotes base no Fedora 44
+- name: Validar Fedora compatível
+  ansible.builtin.assert:
+    that:
+      - ansible_facts['distribution'] == "Fedora"
+      - ansible_facts['distribution_major_version'] | int >= 45
+    fail_msg: >-
+      Este laboratório requer Fedora 45 ou superior.
+      Distribuição detectada: {{ ansible_facts['distribution'] }}
+      {{ ansible_facts['distribution_version'] }}
+
+- name: Garantir pacotes base no Fedora 45
   ansible.builtin.dnf:
     name:
       - curl
@@ -9,6 +19,7 @@
       - python3
       - python3-pip
       - python3-kubernetes     # necessário para o módulo kubernetes.core.k8s
+      - selinux-policy-targeted
     state: present
 
 - name: Ajustar vm.max_map_count para o Elasticsearch
