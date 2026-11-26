@@ -65,7 +65,7 @@ ansible-galaxy collection install -r requirements.yml
 
 ```bash
 git clone https://github.com/LeonardoR1be1ro/lab-elk-chaos.git 
-cd elastic-k8s-chaos-lab
+cd lab-elk-chaos
 ansible-galaxy collection install -r requirements.yml
 ansible-playbook site.yml -K        # -K pede a senha do sudo
 ```
