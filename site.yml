@@ -1,6 +1,6 @@
 ---
 # ============================================================
-# Playbook principal — Elastic Stack + Chaos Lab (k3s / Fedora 44)
+# Playbook principal — Elastic Stack + Chaos Lab (k3s / Fedora 45)
 #
 # Execução completa:
 #   ansible-playbook site.yml -K
@@ -13,7 +13,7 @@
 #   ansible-playbook site.yml -K --tags beats
 #   ansible-playbook site.yml -K --tags apps
 # ============================================================
-- name: Elastic Stack + Chaos Engineering Lab em k3s (Fedora 44)
+- name: Elastic Stack + Chaos Engineering Lab em k3s (Fedora 45)
   hosts: lab
   environment:
     KUBECONFIG: "{{ kubeconfig_path }}"

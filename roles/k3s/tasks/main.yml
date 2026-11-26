@@ -15,6 +15,7 @@
   ansible.builtin.command: /tmp/k3s-install.sh
   environment:
     INSTALL_K3S_EXEC: "--write-kubeconfig-mode 644"
+    K3S_SELINUX: "true"
   when: not k3s_bin.stat.exists
 
 - name: Aguardar a API do Kubernetes responder na porta 6443

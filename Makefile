@@ -1,6 +1,19 @@
-.PHONY: setup deploy status password destroy destroy-full
+.PHONY: check setup deploy status password destroy destroy-full
+
+check:            ## Valida Fedora 45 e as ferramentas necessarias
+	@set -eu; \
+	if [ ! -r /etc/os-release ]; then echo "ERRO: este laboratorio deve ser executado no Fedora 45."; exit 1; fi; \
+	. /etc/os-release; \
+	if [ "$${ID:-}" != "fedora" ] || [ "$${VERSION_ID:-0}" -lt 45 ]; then \
+	  echo "ERRO: Fedora 45 ou superior esperado (detectado: $${PRETTY_NAME:-desconhecido})."; exit 1; \
+	fi; \
+	for cmd in ansible-playbook ansible-galaxy kubectl; do \
+	  command -v "$$cmd" >/dev/null 2>&1 || { echo "ERRO: comando '$$cmd' nao encontrado."; exit 1; }; \
+	done; \
+	echo "OK: Fedora $${VERSION_ID} e ferramentas essenciais detectados."
 
 setup:            ## Instala as collections Ansible necessárias
+	sudo dnf install -y ansible-core git python3-kubernetes
 	ansible-galaxy collection install -r requirements.yml
 
 deploy:           ## Executa o provisionamento completo

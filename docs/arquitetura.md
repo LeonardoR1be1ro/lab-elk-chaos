@@ -2,7 +2,7 @@
 
 ## Visão geral
 
-Um único host Fedora 44 executa um cluster k3s de nó único. O operador **ECK** gerencia o ciclo de vida do Elastic Stack (TLS interno, usuários, upgrades e reload de configuração). As aplicações de teste vivem no namespace `apps`; o stack de observabilidade, no namespace `elastic`.
+Um único host Fedora 45 executa um cluster k3s de nó único. O operador **ECK** gerencia o ciclo de vida do Elastic Stack (TLS interno, usuários, upgrades e reload de configuração). As aplicações de teste vivem no namespace `apps`; o stack de observabilidade, no namespace `elastic`.
 
 ## Componentes
 

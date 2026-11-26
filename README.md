@@ -1,9 +1,9 @@
 # Elastic Stack + Chaos Engineering Lab
 
-Automação completa em **Ansible** para provisionar, em um único host **Fedora 44**, um cluster **Kubernetes local (k3s)** rodando o **Elastic Stack via operador ECK** — Elasticsearch, Kibana, Logstash, Filebeat e Metricbeat — monitorando um serviço `nginx-web`, além de um segundo serviço `nginx-chaos` com um **painel web de chaos engineering** para injetar tráfego, erros e latência no alvo.
+Automação completa em **Ansible** para provisionar, em um único host **Fedora 45**, um cluster **Kubernetes local (k3s)** rodando o **Elastic Stack via operador ECK** — Elasticsearch, Kibana, Logstash, Filebeat e Metricbeat — monitorando um serviço `nginx-web`, além de um segundo serviço `nginx-chaos` com um **painel web de chaos engineering** para injetar tráfego, erros e latência no alvo.
 
 ```
-┌──────────────────────────── Fedora 44 (k3s single node) ────────────────────────────┐
+┌──────────────────────────── Fedora 45 (k3s single node) ────────────────────────────┐
 │                                                                                     │
 │  namespace: apps                          namespace: elastic                        │
 │  ┌───────────────┐  /target/* (proxy)     ┌──────────┐   5044   ┌──────────────┐    │
@@ -45,13 +45,14 @@ O Logstash faz o parse dos logs de acesso (formato *combined*) com `grok`, extra
 
 ## Pré-requisitos
 
-- **Fedora 44** (Server ou Workstation) com acesso `sudo`;
+- **Fedora 45** (Server ou Workstation) com acesso `sudo`;
 - **4 vCPUs / 8 GB de RAM** no mínimo (16 GB recomendado) e ~20 GB livres em disco;
 - Acesso à internet (imagens de contêiner e manifestos do ECK);
 - **ansible-core ≥ 2.15**:
 
 ```bash
 sudo dnf install -y ansible-core git
+make check
 ```
 
 - Collections utilizadas (`kubernetes.core` e `ansible.posix`):
@@ -64,8 +65,8 @@ ansible-galaxy collection install -r requirements.yml
 ## Instalação rápida (TL;DR)
 
 ```bash
-git clone https://github.com/<seu-usuario>/elastic-k8s-chaos-lab.git
-cd elastic-k8s-chaos-lab
+git clone https://github.com/LeonardoR1be1ro/lab-elk-chaos.git 
+cd lab-elk-chaos
 ansible-galaxy collection install -r requirements.yml
 ansible-playbook site.yml -K        # -K pede a senha do sudo
 ```

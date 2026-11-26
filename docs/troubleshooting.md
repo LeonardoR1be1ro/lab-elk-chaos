@@ -316,7 +316,7 @@ Se o erro persistir mesmo com `hostPID: true`, teste SELinux como fator adiciona
 
 ### SELinux bloqueando os hostPath (`/proc`, `/sys/fs/cgroup`, `/var/log/containers`)
 
-Fedora 44 vem com SELinux `Enforcing` por padrão. Containers com `hostPath` para diretórios sensíveis do host podem esbarrar em *denials*, mesmo com `runAsUser: 0` e (no caso do Metricbeat) `hostPID: true`.
+Fedora 45 vem com SELinux `Enforcing` por padrão. Containers com `hostPath` para diretórios sensíveis do host podem esbarrar em *denials*, mesmo com `runAsUser: 0` e (no caso do Metricbeat) `hostPID: true`.
 
 Diagnóstico:
 
